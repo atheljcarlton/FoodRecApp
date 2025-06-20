@@ -4,6 +4,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
+#include <locale.h>
+#include <sys/wait.h>
 #include <sqlite3.h>
 
 #define DB_FILE "foodrec.db"
@@ -42,13 +44,28 @@ static int init_db(void) {
 }
 
 static time_t parse_date(const char *s) {
-    struct tm tm = {0};
-    char *ret = strptime(s, "%Y-%m-%d", &tm);
-    if (!ret) ret = strptime(s, "%m/%d/%Y", &tm);
-    if (!ret) ret = strptime(s, "%d/%m/%Y", &tm);
-    if (!ret) return -1;
-    tm.tm_isdst = -1;
-    return mktime(&tm);
+    static const char *fmts[] = {
+        "%Y-%m-%d", "%Y/%m/%d",
+        "%m/%d/%Y", "%m-%d-%Y",
+        "%m/%d/%y", "%m-%d-%y",
+        "%d/%m/%Y", "%d-%m-%Y",
+        "%d/%m/%y", "%d-%m-%y",
+        "%b %d %Y", "%B %d %Y",
+        "%d %b %Y", "%d %B %Y",
+        NULL
+    };
+
+    for (const char **f = fmts; *f; ++f) {
+        struct tm tm = {0};
+        char *end = strptime(s, *f, &tm);
+        if (end && *end == '\0') {
+            if (tm.tm_year < 69) tm.tm_year += 100;
+            if (tm.tm_year < 100) tm.tm_year += 1900;
+            tm.tm_isdst = -1;
+            return mktime(&tm);
+        }
+    }
+    return (time_t)-1;
 }
 
 static int add_item(const char *name, const char *date_str) {
@@ -110,20 +127,30 @@ static void check_expiring(void) {
     sqlite3_finalize(stmt);
 }
 
+/* Try to parse common date formats from arbitrary text using strptime. */
 static int extract_date_from_text(const char *text, char *out, size_t n) {
+    static const char *fmts[] = {
+        "%Y-%m-%d", "%Y/%m/%d",
+        "%m/%d/%Y", "%m-%d-%Y",
+        "%m/%d/%y", "%m-%d-%y",
+        "%d/%m/%Y", "%d-%m-%Y",
+        "%d/%m/%y", "%d-%m-%y",
+        "%b %d %Y", "%B %d %Y",
+        "%d %b %Y", "%d %B %Y",
+        NULL
+    };
+
     for (const char *p = text; *p; ++p) {
-        int y,m,d;
-        if (sscanf(p, "%4d-%2d-%2d", &y,&m,&d) == 3) {
-            snprintf(out, n, "%04d-%02d-%02d", y,m,d);
-            return 0;
-        }
-        if (sscanf(p, "%2d/%2d/%4d", &m,&d,&y) == 3) {
-            snprintf(out, n, "%04d-%02d-%02d", y,m,d);
-            return 0;
-        }
-        if (sscanf(p, "%2d-%2d-%4d", &m,&d,&y) == 3) {
-            snprintf(out, n, "%04d-%02d-%02d", y,m,d);
-            return 0;
+        for (const char **f = fmts; *f; ++f) {
+            struct tm tm = {0};
+            char *end = strptime(p, *f, &tm);
+            if (end) {
+                if (tm.tm_year < 69) tm.tm_year += 100; /* handle YY < 69 as 20YY */
+                if (tm.tm_year < 100) tm.tm_year += 1900;
+                snprintf(out, n, "%04d-%02d-%02d",
+                         tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
+                return 0;
+            }
         }
     }
     return 1;
@@ -140,7 +167,11 @@ static int scan_image(const char *file, char *date_out, size_t n) {
     char buf[2048];
     size_t len = fread(buf, 1, sizeof(buf)-1, fp);
     buf[len] = '\0';
-    pclose(fp);
+    int status = pclose(fp);
+    if (status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        fprintf(stderr, "Failed to run tesseract - is it installed?\n");
+        return 1;
+    }
     if (extract_date_from_text(buf, date_out, n) != 0) {
         fprintf(stderr, "Could not find date in OCR text\n");
         return 1;
@@ -153,6 +184,8 @@ static void suggest_recipes(void) {
 }
 
 int main(int argc, char *argv[]) {
+    /* Ensure consistent month parsing for strptime */
+    setlocale(LC_ALL, "C");
     if (argc < 2) {
         usage(argv[0]);
         return 1;
