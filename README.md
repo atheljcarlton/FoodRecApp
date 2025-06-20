@@ -3,6 +3,8 @@
 This is a minimal command-line application for tracking groceries and their
 expiration dates. Items can be added manually with a best-by date or scanned
 from an image using Tesseract OCR. Data is stored in an SQLite database.
+The OCR feature now recognises a variety of common date formats (e.g.
+`YYYY-MM-DD`, `MM/DD/YY`, `Jan 3 2025`).
 
 ## Building
 
@@ -11,7 +13,8 @@ make
 ```
 
 Requires GCC, SQLite development libraries, and Tesseract OCR for the optional
-`scan` command.
+`scan` command. Ensure the `tesseract` binary is available in your `PATH` when
+running the program.
 
 ## Usage
 
