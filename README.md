@@ -3,8 +3,9 @@
 This is a minimal command-line application for tracking groceries and their
 expiration dates. Items can be added manually with a best-by date or scanned
 from an image using Tesseract OCR. Data is stored in an SQLite database.
-The OCR feature now recognises a variety of common date formats (e.g.
-`YYYY-MM-DD`, `MM/DD/YY`, `Jan 3 2025`).
+The OCR feature now recognises many common date formats (e.g.
+`YYYY-MM-DD`, `YYYY/MM/DD`, `MM/DD/YY`, `Jan 3 2025`, `Feb 3, 25`).
+Set `FOODREC_DEBUG=1` to print the raw OCR text for troubleshooting.
 
 ## Building
 

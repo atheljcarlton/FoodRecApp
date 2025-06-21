@@ -44,16 +44,19 @@ static int init_db(void) {
 }
 
 static time_t parse_date(const char *s) {
-    static const char *fmts[] = {
-        "%Y-%m-%d", "%Y/%m/%d",
-        "%m/%d/%Y", "%m-%d-%Y",
-        "%m/%d/%y", "%m-%d-%y",
-        "%d/%m/%Y", "%d-%m-%Y",
-        "%d/%m/%y", "%d-%m-%y",
-        "%b %d %Y", "%B %d %Y",
-        "%d %b %Y", "%d %B %Y",
-        NULL
-    };
+static const char *fmts[] = {
+    "%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y%m%d",
+    "%m/%d/%Y", "%m-%d-%Y", "%m.%d.%Y",
+    "%m/%d/%y", "%m-%d-%y", "%m.%d.%y",
+    "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y",
+    "%d/%m/%y", "%d-%m-%y", "%d.%m.%y",
+    "%b %d %Y", "%B %d %Y", "%b %d, %Y", "%B %d, %Y",
+    "%b %d %y", "%B %d %y", "%b %d, %y", "%B %d, %y",
+    "%d %b %Y", "%d %B %Y", "%d %b, %Y", "%d %B, %Y",
+    "%d %b %y", "%d %B %y", "%d %b, %y", "%d %B, %y",
+    "%b.%d.%Y", "%b.%d.%y", "%d%b%Y", "%d%b%y",
+    NULL
+};
 
     for (const char **f = fmts; *f; ++f) {
         struct tm tm = {0};
@@ -129,16 +132,19 @@ static void check_expiring(void) {
 
 /* Try to parse common date formats from arbitrary text using strptime. */
 static int extract_date_from_text(const char *text, char *out, size_t n) {
-    static const char *fmts[] = {
-        "%Y-%m-%d", "%Y/%m/%d",
-        "%m/%d/%Y", "%m-%d-%Y",
-        "%m/%d/%y", "%m-%d-%y",
-        "%d/%m/%Y", "%d-%m-%Y",
-        "%d/%m/%y", "%d-%m-%y",
-        "%b %d %Y", "%B %d %Y",
-        "%d %b %Y", "%d %B %Y",
-        NULL
-    };
+static const char *fmts[] = {
+    "%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y%m%d",
+    "%m/%d/%Y", "%m-%d-%Y", "%m.%d.%Y",
+    "%m/%d/%y", "%m-%d-%y", "%m.%d.%y",
+    "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y",
+    "%d/%m/%y", "%d-%m-%y", "%d.%m.%y",
+    "%b %d %Y", "%B %d %Y", "%b %d, %Y", "%B %d, %Y",
+    "%b %d %y", "%B %d %y", "%b %d, %y", "%B %d, %y",
+    "%d %b %Y", "%d %B %Y", "%d %b, %Y", "%d %B, %Y",
+    "%d %b %y", "%d %B %y", "%d %b, %y", "%d %B, %y",
+    "%b.%d.%Y", "%b.%d.%y", "%d%b%Y", "%d%b%y",
+    NULL
+};
 
     for (const char *p = text; *p; ++p) {
         for (const char **f = fmts; *f; ++f) {
@@ -167,6 +173,8 @@ static int scan_image(const char *file, char *date_out, size_t n) {
     char buf[2048];
     size_t len = fread(buf, 1, sizeof(buf)-1, fp);
     buf[len] = '\0';
+    if (getenv("FOODREC_DEBUG"))
+        fprintf(stderr, "OCR text:\n%s\n", buf);
     int status = pclose(fp);
     if (status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
         fprintf(stderr, "Failed to run tesseract - is it installed?\n");
